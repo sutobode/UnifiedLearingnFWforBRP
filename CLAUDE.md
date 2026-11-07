@@ -189,7 +189,8 @@ brp/  experiments/  tests/    # mã của ta (tạo dần theo TASKS)
 | T0.2 mô phỏng, T0.3 cận dưới và bộ giải chính xác, bộ nạp CVS (`brp/sim.py`, `bounds.py`, `exact.py`, `data.py`) | **Xong, 53 test qua.** Bộ giải chính xác tái lập đúng bài báo: CVS H=3 S=3 → uBRP 4.975 (Bảng 2) và rBRP 5.000 (Bảng 5) |
 | Cơ chế resume (`brp/resume.py`, `--auto-resume`) và giao code qua GitHub | **Xong, đã kiểm chứng trên Kaggle** (job `brp-resume-selftest`: 4 → 8 → 9 mục qua 3 phiên) |
 | T0.1 (bộ nạp mô hình L2BR ở local, patch thiết bị), T0.4 (khung `experiments/run.py`, thống kê), các giai đoạn T1.x trở đi | **Chưa làm** |
-| Cổng G0 (dư địa cải thiện) | **Đang đo** (job `brp-g0-headroom-cvs10x6`, CVS uBRP H=10 S=6, mô hình L2BR công khai, T=1): M=256 → 66,15; M=2560 → 65,275 (giảm 1,3%); M=25600 đang chạy. Ngưỡng G0: giảm ≥ 0,3% khi M từ 2560 lên 25600 |
+| Cổng G0 (dư địa cải thiện) | **ĐẠT** (job `brp-g0-headroom-cvs10x6`, CVS uBRP H=10 S=6, 40 bài, T=1): M=256 → 66,150 (1,4 s/bài); M=2560 → 65,275 (6,5 s/bài); M=25600 → 64,700 (59,5 s/bài). Giảm 0,881% từ M=2560 lên 25600 (ngưỡng 0,3%). Mức giảm đang chậm dần theo cấp số nhân của M, nên điểm cần chứng minh là PG-Beam đạt ≤ 64,7 trong thời gian cỡ vài giây, không phải 60 giây |
+| PG-Beam so với L2BR (job `brp-pgbeam-cvs10x6`, 9 cấu hình × 40 bài) | **Đang chờ/chạy trên Kaggle**; kết quả quyết định cổng G1 |
 
 **Việc kế tiếp:** đọc kết quả G0, rồi T1.2 (PG-Beam tối thiểu với `lb1`, cần bộ nạp mô hình L2BR vào `brp/`), T0.4 (khung chạy thí nghiệm và thống kê).
 
