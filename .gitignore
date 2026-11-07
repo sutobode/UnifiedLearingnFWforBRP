@@ -1,0 +1,11 @@
+.env
+kaggle_out/
+kaggle/kaggle_out/
+kaggle/code_pkg/
+results/
+__pycache__/
+logs/
+third_party/
+*.pdf
+.env.*
+*.pt
