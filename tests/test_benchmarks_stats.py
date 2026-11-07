@@ -85,3 +85,18 @@ def test_l2br_sampler_never_beats_the_optimum():
         assert obj is not None and obj >= opt     # a sampled solution can match but never beat the optimum
         gaps.append(obj - opt)
     assert np.mean(gaps) <= 2                     # and with M=64 it should be close
+
+
+@needs_l2br
+def test_sampler_follows_the_root_given_to_load_model():
+    """Regression: on Kaggle the clone is not under ./third_party, the sampler must use load_model's root."""
+    from brp import l2br_adapter
+    l2br_adapter.load_model(ROOT / "IL/final_models/CVS-uBRP/H=5xS=5.pt", "u", "cpu", ROOT)
+    assert l2br_adapter.ACTIVE_ROOT == ROOT
+    l2br_adapter.ACTIVE_ROOT = ROOT / "does-not-exist"
+    try:
+        with pytest.raises(FileNotFoundError):
+            from brp.l2br_sampler import _env_cls
+            _env_cls()                                  # proves it does read ACTIVE_ROOT, not a fixed default
+    finally:
+        l2br_adapter.ACTIVE_ROOT = ROOT

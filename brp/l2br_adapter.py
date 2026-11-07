@@ -44,8 +44,13 @@ def patch_l2br(root=DEFAULT_ROOT) -> bool:
     return changed
 
 
+ACTIVE_ROOT = DEFAULT_ROOT  # the L2BR clone in use; set by load_model so other modules follow it (Kaggle path!)
+
+
 def load_model(model_path, variant: str, device="cpu", root=DEFAULT_ROOT, embed_dim=128, n_heads=8,
                n_layers=3, ff=512):
+    global ACTIVE_ROOT
+    ACTIVE_ROOT = Path(root)
     patch_l2br(root)
     if str(root) not in sys.path:
         sys.path.insert(0, str(root))

@@ -10,7 +10,9 @@ import torch
 from .l2br_adapter import DEFAULT_ROOT, patch_l2br
 
 
-def _env_cls(root=DEFAULT_ROOT):
+def _env_cls(root=None):
+    from . import l2br_adapter
+    root = root or l2br_adapter.ACTIVE_ROOT      # follows the clone passed to load_model()
     patch_l2br(root)
     if str(root) not in sys.path:
         sys.path.insert(0, str(root))
@@ -30,7 +32,7 @@ def raw_x(inst, T: int) -> torch.Tensor:
 
 @torch.no_grad()
 def l2br_best_of_m(model, inst, T: int, variant: str, M: int, temp: float = 1.0, device="cpu",
-                   traj_limit: int = 500, root=DEFAULT_ROOT):
+                   traj_limit: int = 500, root=None):
     """Number of relocations of the first rollout to finish (= best of M), or None if none finished within
     traj_limit. Rollouts run in lock-step, so the first to finish has the fewest relocations."""
     Env = _env_cls(root)
