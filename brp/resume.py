@@ -122,6 +122,8 @@ class ResumableRun:
             row = fn(p)
             row["key"] = k
             self.record(row)
+            if i % max(1, len(todo) // 20) == 0 or i == len(todo):  # ~20 progress lines per session
+                log(f"progress: {i}/{len(todo)} new items | last key {k} | {time.time() - self.t0:.0f}s elapsed")
         finished = all(self.is_done(k) for k, _ in items)
         self.finish(finished, n_total=len(items))
         return finished

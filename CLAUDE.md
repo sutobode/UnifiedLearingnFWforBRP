@@ -190,7 +190,7 @@ brp/  experiments/  tests/    # mã của ta (tạo dần theo TASKS)
 | Cơ chế resume (`brp/resume.py`, `--auto-resume`) và giao code qua GitHub | **Xong, đã kiểm chứng trên Kaggle** (job `brp-resume-selftest`: 4 → 8 → 9 mục qua 3 phiên) |
 | T0.1 (bộ nạp mô hình L2BR ở local, patch thiết bị), T0.4 (khung `experiments/run.py`, thống kê), các giai đoạn T1.x trở đi | **Chưa làm** |
 | Cổng G0 (dư địa cải thiện) | **ĐẠT** (job `brp-g0-headroom-cvs10x6`, CVS uBRP H=10 S=6, 40 bài, T=1): M=256 → 66,150 (1,4 s/bài); M=2560 → 65,275 (6,5 s/bài); M=25600 → 64,700 (59,5 s/bài). Giảm 0,881% từ M=2560 lên 25600 (ngưỡng 0,3%). Mức giảm đang chậm dần theo cấp số nhân của M, nên điểm cần chứng minh là PG-Beam đạt ≤ 64,7 trong thời gian cỡ vài giây, không phải 60 giây |
-| PG-Beam so với L2BR (job `brp-pgbeam-cvs10x6`, 9 cấu hình × 40 bài) | **Đang chờ/chạy trên Kaggle**; kết quả quyết định cổng G1 |
+| PG-Beam so với L2BR (job `brp-pgbeam-cvs10x6`, CVS uBRP H=10 S=6, 9 cấu hình × 40 bài) | **Xong, KHÔNG qua G1 ở cùng thời gian thực** (bản Python): λ=1: B16 → 67,275 (0,7 s), B64 → 66,300 (2,2 s), B256 → 65,600 (7,9 s) so với L2BR M=2560 → 65,275 (6,5 s). λ=0 (chỉ `lb1`) rất tệ (70,6–75,8): cận dưới yếu, chính sách mang hầu hết thông tin. Ở cùng số lần gọi mạng PG-Beam hơn L2BR 0,83% (B256 65,600 so với M256 66,150). Giả thuyết đang kiểm tra: phần thua về thời gian là overhead Python; cần bản beam vector hóa trên GPU (T2.1) |
 
 **Việc kế tiếp:** đọc kết quả G0, rồi T1.2 (PG-Beam tối thiểu với `lb1`, cần bộ nạp mô hình L2BR vào `brp/`), T0.4 (khung chạy thí nghiệm và thống kê).
 
