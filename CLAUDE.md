@@ -20,11 +20,11 @@ Công cụ cần thiết đều nằm **trong repo** (`kaggle/kaggle_cli.py`, `k
 
 ## 1. Quy tắc cốt lõi (không thương lượng)
 
-1. **Mọi code được viết và sửa ở máy local.** Không soạn hay sửa logic trực tiếp trên Kaggle (kể cả notebook trong trình duyệt).
+1. **Mọi code được viết và sửa ở máy local (laptop), commit và `git push` lên GitHub**; Kaggle chỉ chạy code đã được đẩy lên GitHub. Không soạn hay sửa logic trực tiếp trên Kaggle (kể cả notebook trong trình duyệt).
 2. **Mọi việc cần GPU chạy trên Kaggle, thông qua CLI** (`python -m kaggle ...`, bọc trong `kaggle/kaggle_cli.py`) hoặc SDK. Không chạy GPU ở nơi khác, không SSH hay tunnel vào Kaggle (vi phạm điều khoản).
 3. **Việc tính toán nhẹ chạy ở local; việc nặng chạy trên Kaggle** (Mục 2).
 4. **Mọi lần chạy, local hay Kaggle, đều phải sinh file log tương ứng** (Mục 3). Một lần chạy không có log thì coi như chưa chạy.
-5. Quy trình bắt buộc: **viết code ở local, test ở local (CPU), đẩy lên Kaggle bằng CLI, theo dõi log, tải kết quả về, kiểm tra, ghi vào `kaggle/RUNS.md`**.
+5. Quy trình bắt buộc: **viết code ở local, test ở local (CPU), commit và push, chạy trên Kaggle bằng CLI (job có resume), theo dõi log, tải kết quả về, kiểm tra, ghi vào `kaggle/RUNS.md`**.
 
 ## 2. Phân chia máy local và Kaggle
 
@@ -91,7 +91,18 @@ python kaggle/digest.py <slug> [--run RUN_ID]          # TÓM TẮT ~15 dòng c�
 ```
 `run` làm: push job, stream log trực tiếp, theo dõi trạng thái, tải output, và thoát với mã lỗi nếu job lỗi. **Chạy nền** (`run_in_background`) cho job dài, và dùng một Monitor lọc các dòng `STATUS`, `[RESULT]`, `[SUMMARY]`, `[ERROR]`, `Traceback` để nhận thông báo, thay vì chờ thủ công.
 
-**Cấu trúc job:** `kaggle/jobs/<slug>/{kernel-metadata.json, main.py}` (riêng tư, GPU, internet bật). `kernels push` **chỉ tải file `code_file`** lên, nên code nhiều file phải đưa vào dataset riêng tư (ví dụ `minhthuong123/brp-code`, cập nhật mỗi lần code đổi, **trước** khi đẩy job) rồi `sys.path.insert` trong `main.py`. Dataset gắn vào job nằm dưới `/kaggle/input/...`; đừng hard-code đường dẫn, hãy duyệt thư mục tìm file đánh dấu.
+**Cấu trúc job:** `kaggle/jobs/<slug>/{kernel-metadata.json, main.py}` (riêng tư, internet bật). `kernels push` chỉ tải file `main.py` lên, nên **code của ta được lấy từ GitHub trong job**: repo công khai `https://github.com/sutobode/UnifiedLearingnFWforBRP`. `main.py` chứa hai placeholder `@@REPO_URL@@` và `@@CODE_REF@@`; `kaggle_cli.py run` thay chúng bằng URL của `origin` và **SHA của HEAD local** khi đẩy job, rồi job `git clone` và `git checkout` đúng SHA đó. Hệ quả:
+- **Phải commit và `git push` trước khi chạy job** (nếu HEAD chưa được đẩy lên origin, `kaggle_cli.py` từ chối chạy). Kaggle chạy code trên GitHub, không phải code chưa commit trên laptop.
+- Mỗi job ghi commit đã dùng vào log (`code commit ...`) và vào `kaggle_out/<slug>/<run_id>/code_ref.txt`.
+- Mẫu job có sẵn: `kaggle/jobs/resume_selftest/main.py` (bootstrap, `JobLog`, `ResumableRun`). Bắt đầu job mới bằng cách sao chép nó.
+- Repo là **công khai**: không bao giờ commit khóa, dữ liệu benchmark (`third_party/` đã bị ignore), file PDF của bài báo (`*.pdf` đã bị ignore), hay file `.pt` lớn.
+
+**Resume (bắt buộc với job dài, vì phiên Kaggle tối đa khoảng 12 giờ và có thể bị cắt):**
+- Mã: `brp/resume.py` (`ResumableRun`, `find_resume_dirs`). Mỗi kết quả là một dòng JSONL có `key` duy nhất, ghi và `fsync` ngay; khởi động lại thì bỏ qua các `key` đã có và **chép kết quả cũ vào output mới**, nên output của phiên cuối luôn là bản **tích lũy đầy đủ**. Dòng cuối bị cắt dở do sự cố được bỏ qua an toàn. Checkpoint huấn luyện ghi nguyên tử (`save_checkpoint`) và tìm bản mới nhất bằng `latest_checkpoint`.
+- Ngân sách thời gian: `ResumableRun(budget_s=..., margin_s=...)` làm job tự dừng êm trước giờ chết và ghi `state.json` với `"finished": false`. Đặt `budget_s` khoảng 9 giờ cho job thật.
+- Driver: `python kaggle/kaggle_cli.py run kaggle/jobs/<job> --auto-resume N` đọc `state.json` sau mỗi phiên; nếu chưa xong, tải output tích lũy lên dataset riêng tư `brp-resume-<slug>`, gắn vào phiên mới và chạy tiếp, tối đa N phiên bổ sung. Nối tiếp thủ công: `--resume-from <run_id|LATEST>`.
+- **Đã kiểm chứng ngày 07/11/2026** bằng job `brp-resume-selftest`: 9 mục, mỗi phiên bị cắt sau khoảng 55 giây; ba phiên cho 4, rồi 8, rồi 9 mục, không tính lại mục nào, phiên cuối báo `finished: true`.
+- Mọi job mới **phải dùng `ResumableRun`** cho kết quả theo từng bài và dùng checkpoint cho huấn luyện.
 
 **Xác thực:** `KAGGLE_API_TOKEN` trong `.env` ở gốc repo (nằm trong `.gitignore`) hoặc biến môi trường của tiến trình. `kaggle_cli.py` tự nạp `.env`. Luôn gọi `python -m kaggle`, không gọi `kaggle` (shim `kaggle.exe` thường không có trong PATH trên Windows).
 
@@ -159,11 +170,13 @@ brp/  experiments/  tests/    # mã của ta (tạo dần theo TASKS)
 | Heredoc Python có đường dẫn Windows báo `SyntaxError (unicode error)` | `\U` trong chuỗi thường. Dùng `Edit` tool hoặc chuỗi raw, không nhét đường dẫn `C:\Users\...` vào chuỗi thường |
 | `status` của một kernel trả về `permission 'kernels.get' was denied` | Kernel đã bị xóa hoặc chưa tồn tại (xảy ra khi người dùng xóa sạch). Đẩy lại job là xong |
 | `kernels push` chỉ tải một file | Cần dataset riêng tư cho code nhiều file (Mục 4) |
+| `gh auth login` báo `x509: certificate signed by unknown authority` | `gh` (Go) không dùng kho chứng chỉ của Windows. Đặt `SSL_CERT_FILE="/c/Program Files/Git/mingw64/etc/ssl/certs/ca-bundle.crt"` thì chạy được. Hiện không cần `gh`: `git push` dùng thông tin đăng nhập có sẵn của máy |
+| Tạo repo công khai mà không có đăng nhập GitHub | Máy không có biến môi trường GitHub nào; người dùng tự tạo repo và push lần đầu. Repo: `sutobode/UnifiedLearingnFWforBRP` (công khai). Không dùng `git add -A` khi có file tạm; luôn xem `git status` trước khi push vì repo công khai |
 | Biến `KAGGLE_API_TOKEN` | Không có trong biến môi trường hệ thống của máy này; nằm trong `.env` ở gốc repo, `kaggle_cli.py` tự nạp |
 
 ## 10. Trạng thái hiện tại (cập nhật cuối mỗi task)
 
-*Cập nhật lần cuối: 07/11/2026.*
+*Cập nhật lần cuối: 07/11/2026 (tối).*
 
 | Mục | Trạng thái |
 |---|---|
@@ -172,10 +185,13 @@ brp/  experiments/  tests/    # mã của ta (tạo dần theo TASKS)
 | Kaggle cấp GPU và chạy L2BR | **Xong:** Tesla T4, `cuda available: True` |
 | Chuỗi log đầy đủ (live, status, run.log, JSON) | **Xong, đã kiểm tra** trên job `brp-smoke-l2br` |
 | Tái lập Bảng 2 trên Kaggle (L2BR Base, CVS uBRP H=3, N=2560) | **Xong:** S=3, 4, 5 cho 4.975, 6.025, 6.850, khớp bài báo (chênh 0,0%). Chi tiết `kaggle/RUNS.md` |
-| Phần còn lại của T0.1 (khung dự án local, patch thiết bị, bộ nạp L2BR ở local), T0.2 – T0.5, các giai đoạn sau | **Chưa làm** |
-| Cổng G0 (dư địa cải thiện) | **Chưa đo.** Đây là câu hỏi quyết định của toàn dự án; làm T1.x sớm |
+| Repo công khai `sutobode/UnifiedLearingnFWforBRP`, push từ laptop | **Xong** (commit mới nhất đã được đẩy) |
+| T0.2 mô phỏng, T0.3 cận dưới và bộ giải chính xác, bộ nạp CVS (`brp/sim.py`, `bounds.py`, `exact.py`, `data.py`) | **Xong, 53 test qua.** Bộ giải chính xác tái lập đúng bài báo: CVS H=3 S=3 → uBRP 4.975 (Bảng 2) và rBRP 5.000 (Bảng 5) |
+| Cơ chế resume (`brp/resume.py`, `--auto-resume`) và giao code qua GitHub | **Xong, đã kiểm chứng trên Kaggle** (job `brp-resume-selftest`: 4 → 8 → 9 mục qua 3 phiên) |
+| T0.1 (bộ nạp mô hình L2BR ở local, patch thiết bị), T0.4 (khung `experiments/run.py`, thống kê), các giai đoạn T1.x trở đi | **Chưa làm** |
+| Cổng G0 (dư địa cải thiện) | **Đang đo** (job `brp-g0-headroom-cvs10x6`, CVS uBRP H=10 S=6, mô hình L2BR công khai, T=1): M=256 → 66,15; M=2560 → 65,275 (giảm 1,3%); M=25600 đang chạy. Ngưỡng G0: giảm ≥ 0,3% khi M từ 2560 lên 25600 |
 
-**Việc kế tiếp:** T0.1 (khung dự án, patch thiết bị, bộ nạp L2BR ở local), T0.2 (bộ mô phỏng tham chiếu), T0.3 (cận dưới và bộ giải chính xác).
+**Việc kế tiếp:** đọc kết quả G0, rồi T1.2 (PG-Beam tối thiểu với `lb1`, cần bộ nạp mô hình L2BR vào `brp/`), T0.4 (khung chạy thí nghiệm và thống kê).
 
 ## 11. Tiết kiệm token (token của agent là chi phí chính; tuân thủ mọi mục)
 
