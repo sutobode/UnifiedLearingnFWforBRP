@@ -9,3 +9,5 @@ third_party/
 *.pdf
 .env.*
 *.pt
+gh_login.out
+.pytest_cache/
