@@ -17,15 +17,29 @@ def l2br_name(M, temp) -> str:
     return f"l2br M{M} T{temp}"
 
 
-def run_pgbeam(jl, run, policy, items, T, variant, grid, limit_s=60.0):
-    """grid: [(B, k, lam)]. items: [(inst_key, stacks)]. Returns True when everything is done."""
-    todo = [(f"{cfg_name(B, k, lam)}/{ik}", (B, k, lam, ik, st)) for (B, k, lam) in grid for ik, st in items]
+def python_search(policy, T, variant):
+    """search(inst, B, k, lam, limit_s) for the reference Python beam (policy = brp.l2br_adapter.log_probs)."""
+    return lambda st, B, k, lam, limit_s: pg_beam(policy, st, T, variant, B=B, k=k, lam=lam, time_limit_s=limit_s)
+
+
+def gpu_search(logits_fn, T, variant, device):
+    """search(...) for the vectorised beam (logits_fn = model forward)."""
+    from .search.pg_beam_gpu import pg_beam_gpu
+    return lambda st, B, k, lam, limit_s: pg_beam_gpu(logits_fn, st, T, variant, B=B, k=k, lam=lam,
+                                                      time_limit_s=limit_s, device=device)
+
+
+def run_pgbeam(jl, run, search, items, T, variant, grid, limit_s=60.0, tag="pgbeam"):
+    """grid: [(B, k, lam)]. items: [(inst_key, stacks)]. search: see python_search / gpu_search.
+    Returns True when everything is done."""
+    name = lambda B, k, lam: f"{tag} B{B} k{k} lam{lam}"
+    todo = [(f"{name(B, k, lam)}/{ik}", (B, k, lam, ik, st)) for (B, k, lam) in grid for ik, st in items]
 
     def work(p):
         B, k, lam, ik, st = p
-        r = pg_beam(policy, st, T, variant, B=B, k=k, lam=lam, time_limit_s=limit_s)
+        r = search(st, B, k, lam, limit_s)
         ok = r.obj is not None and replay(st, T, variant, r.path) == r.obj      # re-check every solution
-        return {"cfg": cfg_name(B, k, lam), "inst": ik, "obj": r.obj if ok else None, "valid": ok,
+        return {"cfg": name(B, k, lam), "inst": ik, "obj": r.obj if ok else None, "valid": ok,
                 "wall_s": round(r.wall_s, 3), "nn_calls": r.nn_calls, "attempts": r.stats.get("attempts"),
                 "timed_out": r.timed_out}
     return run.run_items(todo, work, log=jl.progress)
