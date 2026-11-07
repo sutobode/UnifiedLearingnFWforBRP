@@ -45,14 +45,15 @@ def run_pgbeam(jl, run, search, items, T, variant, grid, limit_s=60.0, tag="pgbe
     return run.run_items(todo, work, log=jl.progress)
 
 
-def run_l2br(jl, run, model, items, T, variant, Ms, temp=1.0, device="cpu", traj_limit=500):
+def run_l2br(jl, run, model, items, T, variant, Ms, temp=1.0, device="cpu", traj_limit=500, tag=""):
     """Per-instance L2BR best-of-M baseline (for paired comparison with run_pgbeam)."""
-    todo = [(f"{l2br_name(M, temp)}/{ik}", (M, ik, st)) for M in Ms for ik, st in items]
+    pre = f"{tag} " if tag else ""
+    todo = [(f"{pre}{l2br_name(M, temp)}/{ik}", (M, ik, st)) for M in Ms for ik, st in items]
 
     def work(p):
         M, ik, st = p
         t0 = time.time()
         obj = l2br_best_of_m(model, st, T, variant, M, temp, device, traj_limit)
-        return {"cfg": l2br_name(M, temp), "inst": ik, "obj": obj, "valid": obj is not None,
+        return {"cfg": pre + l2br_name(M, temp), "inst": ik, "obj": obj, "valid": obj is not None,
                 "wall_s": round(time.time() - t0, 3)}
     return run.run_items(todo, work, log=jl.progress)

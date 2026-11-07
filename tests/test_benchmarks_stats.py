@@ -100,3 +100,16 @@ def test_sampler_follows_the_root_given_to_load_model():
             _env_cls()                                  # proves it does read ACTIVE_ROOT, not a fixed default
     finally:
         l2br_adapter.ACTIVE_ROOT = ROOT
+
+
+@needs_l2br
+def test_l2br_sampler_restricted_variant_never_beats_the_optimum():
+    from brp.l2br_adapter import load_model
+    from brp.l2br_sampler import l2br_best_of_m
+    model = load_model(ROOT / "IL/final_models/CVS-rBRP/H=5xS=5.pt", "r", "cpu", ROOT)
+    rng = random.Random(8)
+    for _ in range(4):
+        inst = random_instance(rng, 5, 7, 10)
+        opt, _ = solve(inst, 7, "r")
+        obj = l2br_best_of_m(model, inst, 7, "r", M=64)
+        assert obj is not None and opt <= obj <= opt + 4
